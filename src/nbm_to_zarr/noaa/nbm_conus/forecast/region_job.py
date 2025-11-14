@@ -213,7 +213,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
         # NBM data has some latency, so look back a few hours to ensure data availability
         # Round down to the nearest hour
-        init_time = now.floor("H") - timedelta(hours=2)
+        init_time = now.floor("h") - timedelta(hours=2)
 
         # Create a single job for the most recent forecast
         processing_region = ProcessingRegion(

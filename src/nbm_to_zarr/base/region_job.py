@@ -142,14 +142,14 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
         init_times = pd.date_range(
             start=self.processing_region.init_time_start,
             end=self.processing_region.init_time_end,
-            freq="1H",
+            freq="1h",
         )
 
         # Build empty dataset
         ds = self.template_config.get_template(
             append_dim_start=init_times[0],
             append_dim_periods=len(init_times),
-            append_dim_freq="1H",
+            append_dim_freq="1h",
         )
 
         # Create lead_time coordinate values

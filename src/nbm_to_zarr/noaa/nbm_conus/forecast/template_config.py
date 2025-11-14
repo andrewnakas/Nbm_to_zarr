@@ -5,6 +5,7 @@ from __future__ import annotations
 from functools import cached_property
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from nbm_to_zarr.base.template_config import (
@@ -94,13 +95,25 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
         """Derive additional coordinates from dimension coordinates."""
         # Add valid_time coordinate
         if "init_time" in ds.coords and "lead_time" in ds.coords:
+            # Convert init_time to datetime64[ns] without timezone for numpy operations
+            init_time_values = ds.coords["init_time"].values
+            if hasattr(init_time_values[0], 'tz_localize'):
+                # Pandas Timestamp with timezone - convert to UTC then remove tz
+                init_time_values = np.array([pd.Timestamp(t).tz_localize(None) for t in init_time_values], dtype='datetime64[ns]')
+            elif isinstance(init_time_values[0], pd.Timestamp):
+                # Convert pandas Timestamp to numpy datetime64
+                init_time_values = init_time_values.astype('datetime64[ns]')
+
+            # Now we can safely add datetime64 + timedelta64
+            valid_time_values = (
+                init_time_values[:, np.newaxis]
+                + ds.coords["lead_time"].values[np.newaxis, :]
+            )
+
             ds = ds.assign_coords(
                 valid_time=(
                     ["init_time", "lead_time"],
-                    (
-                        ds.coords["init_time"].values[:, np.newaxis]
-                        + ds.coords["lead_time"].values[np.newaxis, :]
-                    ),
+                    valid_time_values,
                     {
                         "long_name": "Forecast valid time",
                         "standard_name": "time",
