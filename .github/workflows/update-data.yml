@@ -51,9 +51,9 @@ jobs:
         run: |
           python scripts/generate_catalog.py
 
-      - name: Implement rolling 24-hour retention
+      - name: Keep only latest forecast run
         run: |
-          python scripts/cleanup_old_forecasts.py --max-age-hours 24
+          python scripts/cleanup_old_forecasts.py
 
       - name: Create summary document
         run: |

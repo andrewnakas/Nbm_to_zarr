@@ -10,16 +10,14 @@ import pandas as pd
 import xarray as xr
 
 
-def cleanup_old_forecasts(max_age_hours: int = 24) -> None:
+def cleanup_old_forecasts(max_age_hours: int = 24, keep_latest_only: bool = True) -> None:
     """Remove forecast data older than the specified age.
 
     Args:
-        max_age_hours: Maximum age of forecasts to keep in hours
+        max_age_hours: Maximum age of forecasts to keep in hours (ignored if keep_latest_only=True)
+        keep_latest_only: If True, keep only the most recent forecast run(s)
     """
     data_dir = Path("data")
-    cutoff_time = pd.Timestamp.now(tz="UTC") - timedelta(hours=max_age_hours)
-
-    print(f"Cleaning up forecasts older than {cutoff_time}")
 
     # Process each Zarr dataset
     for zarr_path in data_dir.glob("*.zarr"):
@@ -37,15 +35,25 @@ def cleanup_old_forecasts(max_age_hours: int = 24) -> None:
             # Find indices to keep
             init_times = pd.DatetimeIndex(ds[append_dim].values)
 
-            # Ensure both timestamps are timezone-naive for comparison
+            # Ensure timezone-naive for comparison
             if init_times.tz is not None:
                 init_times = init_times.tz_localize(None)
-            cutoff_time_naive = cutoff_time.tz_localize(None) if cutoff_time.tz is not None else cutoff_time
 
-            keep_mask = init_times >= cutoff_time_naive
+            if keep_latest_only:
+                # Keep only the most recent forecast run (most recent init_time)
+                # This keeps just 1 forecast run with all its lead times
+                max_init_time = init_times.max()
+                keep_mask = init_times == max_init_time
+                print(f"Keeping only latest forecast: {max_init_time}")
+            else:
+                # Keep forecasts within the time window
+                cutoff_time = pd.Timestamp.now(tz="UTC") - timedelta(hours=max_age_hours)
+                cutoff_time_naive = cutoff_time.tz_localize(None) if cutoff_time.tz is not None else cutoff_time
+                keep_mask = init_times >= cutoff_time_naive
+                print(f"Keeping forecasts newer than {cutoff_time_naive}")
 
             if keep_mask.sum() == 0:
-                print(f"Warning: All data in {zarr_path} is older than cutoff")
+                print(f"Warning: All data in {zarr_path} would be removed - keeping as is")
                 ds.close()
                 continue
 
@@ -54,7 +62,7 @@ def cleanup_old_forecasts(max_age_hours: int = 24) -> None:
                 ds.close()
                 continue
 
-            # Select only recent data
+            # Select only data to keep
             ds_recent = ds.isel({append_dim: keep_mask})
 
             # Create a temporary path
@@ -71,7 +79,8 @@ def cleanup_old_forecasts(max_age_hours: int = 24) -> None:
             temp_path.rename(zarr_path)
 
             removed_count = (~keep_mask).sum()
-            print(f"Removed {removed_count} old forecast(s) from {zarr_path.name}")
+            kept_count = keep_mask.sum()
+            print(f"✅ Kept {kept_count} init_time(s), removed {removed_count} from {zarr_path.name}")
 
         except Exception as e:
             print(f"Error processing {zarr_path}: {e}")
@@ -85,11 +94,23 @@ def main() -> None:
         "--max-age-hours",
         type=int,
         default=24,
-        help="Maximum age of forecasts to keep in hours (default: 24)",
+        help="Maximum age of forecasts to keep in hours (default: 24, ignored if --keep-latest-only)",
+    )
+    parser.add_argument(
+        "--keep-latest-only",
+        action="store_true",
+        default=True,
+        help="Keep only the most recent forecast run (default: True)",
+    )
+    parser.add_argument(
+        "--no-keep-latest-only",
+        dest="keep_latest_only",
+        action="store_false",
+        help="Use max-age-hours instead of keeping only latest",
     )
 
     args = parser.parse_args()
-    cleanup_old_forecasts(args.max_age_hours)
+    cleanup_old_forecasts(args.max_age_hours, args.keep_latest_only)
 
 
 if __name__ == "__main__":

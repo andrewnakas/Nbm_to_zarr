@@ -27,12 +27,12 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
 
     Temporal configuration:
     - Update frequency: Hourly
-    - Forecast length: Up to 36 hours (hourly steps)
+    - Forecast length: Up to 72 hours (hourly steps)
     """
 
     dimensions: dict[str, int] = {
         "init_time": 1,  # Will be extended dynamically
-        "lead_time": 37,  # 0-36 hours (f000 often doesn't exist, so 0h will be NaN)
+        "lead_time": 73,  # 0-72 hours (f000 often doesn't exist, so 0h will be NaN)
         "y": 1597,
         "x": 2345,
     }
