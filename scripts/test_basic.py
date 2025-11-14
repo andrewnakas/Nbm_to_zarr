@@ -63,15 +63,22 @@ def test_template_creation() -> bool:
             # Check if coordinate is datetime-like
             if 'datetime64' in dtype_str:
                 print(f"    -> Is datetime type")
-                # Use pandas to handle timezone conversion robustly
-                dt_index = pd.DatetimeIndex(ds[coord_name].values)
-                print(f"    -> dt_index.tz = {dt_index.tz}")
-                if dt_index.tz is not None:
-                    # Remove timezone
-                    print(f"    -> Removing timezone...")
-                    values = dt_index.tz_localize(None).to_numpy()
+
+                # Check if timezone is in the dtype string (e.g., "datetime64[ns, UTC]")
+                if 'UTC' in dtype_str or 'utc' in dtype_str.lower():
+                    print(f"    -> Has UTC timezone in dtype string")
+                    # Convert values to timezone-naive
+                    values = ds[coord_name].values.astype('datetime64[ns]')
                     ds = ds.assign_coords({coord_name: values})
                     print(f"    ✅ Removed timezone from {coord_name}")
+                else:
+                    # Try pandas approach for other timezone formats
+                    dt_index = pd.DatetimeIndex(ds[coord_name].values)
+                    print(f"    -> dt_index.tz = {dt_index.tz}")
+                    if dt_index.tz is not None:
+                        values = dt_index.tz_localize(None).to_numpy()
+                        ds = ds.assign_coords({coord_name: values})
+                        print(f"    ✅ Removed timezone from {coord_name}")
 
         ds.to_zarr(output_path, mode="w", consolidated=True)
 

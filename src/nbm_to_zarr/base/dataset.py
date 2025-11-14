@@ -96,16 +96,24 @@ class Dataset(ABC, Generic[SourceFileCoordT, DataVarT]):
 
         # Remove timezone from datetime coordinates (Zarr doesn't support timezones)
         for coord_name in ds.coords:
-            # Check if coordinate is datetime-like
-            if 'datetime64' in str(ds[coord_name].dtype):
-                # Use pandas to handle timezone conversion robustly
-                import pandas as pd
-                dt_index = pd.DatetimeIndex(ds[coord_name].values)
-                if dt_index.tz is not None:
-                    # Remove timezone
-                    values = dt_index.tz_localize(None).to_numpy()
+            dtype_str = str(ds[coord_name].dtype)
+
+            # Check if coordinate is datetime-like with timezone
+            if 'datetime64' in dtype_str:
+                # Check if timezone is in the dtype string (e.g., "datetime64[ns, UTC]")
+                if any(tz in dtype_str for tz in ['UTC', 'utc', '+', '-']):
+                    print(f"  Removing timezone from {coord_name} (dtype: {dtype_str})")
+                    # Convert values to timezone-naive
+                    values = ds[coord_name].values.astype('datetime64[ns]')
                     ds = ds.assign_coords({coord_name: values})
-                    print(f"  Removed timezone from {coord_name}")
+                else:
+                    # Try pandas approach for other timezone formats
+                    import pandas as pd
+                    dt_index = pd.DatetimeIndex(ds[coord_name].values)
+                    if dt_index.tz is not None:
+                        print(f"  Removing timezone from {coord_name}")
+                        values = dt_index.tz_localize(None).to_numpy()
+                        ds = ds.assign_coords({coord_name: values})
 
         # Remove problematic attributes
         for var in ds.coords:
