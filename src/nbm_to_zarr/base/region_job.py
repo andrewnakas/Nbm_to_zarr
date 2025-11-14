@@ -165,13 +165,14 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
         ds = ds.assign_coords(lead_time=lead_times)
 
         print(f"Processing {len(source_coords)} source files...")
+        print(f"Total data to download: ~{len(source_coords) * 150 / 1024:.1f} GB")
 
         # Process each source file
         processed_count = 0
-        for source_coord in source_coords:
+        for idx, source_coord in enumerate(source_coords, 1):
             try:
                 # Download file
-                print(f"Downloading: {source_coord.download_url()}")
+                print(f"[{idx}/{len(source_coords)}] Downloading: {source_coord.download_url()}")
                 file_path = self.download_file(source_coord)
 
                 # Read data
@@ -221,8 +222,10 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
                         ds[var_config.name].values[init_idx, forecast_hour, :, :] = data_array
 
                 processed_count += 1
-                if processed_count % 10 == 0:
-                    print(f"Processed {processed_count}/{len(source_coords)} files")
+                # Report progress more frequently for long downloads
+                if processed_count % 5 == 0 or processed_count == len(source_coords):
+                    pct = (processed_count / len(source_coords)) * 100
+                    print(f"✅ Progress: {processed_count}/{len(source_coords)} files ({pct:.1f}%)")
 
             except Exception as e:
                 print(f"Error processing {source_coord}: {e}")

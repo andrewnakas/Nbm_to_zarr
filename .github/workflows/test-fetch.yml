@@ -9,6 +9,7 @@ on:
 jobs:
   test-fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
 
@@ -49,6 +50,7 @@ jobs:
           nbm-zarr --help || echo "nbm-zarr --help failed"
 
       - name: Test data fetch (single forecast)
+        timeout-minutes: 60
         run: |
           echo "Testing NBM data download and processing..."
           set -x  # Enable command echoing
@@ -58,7 +60,6 @@ jobs:
             python -m nbm_to_zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data
           }
           echo "Exit code: $?"
-        timeout-minutes: 30
 
       - name: Check output
         if: always()
