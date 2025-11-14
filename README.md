@@ -61,6 +61,22 @@ The repository includes a GitHub Actions workflow that runs hourly to:
 3. Maintain a 24-hour rolling window
 4. Generate data catalog for easy access
 
+### Testing
+
+A test workflow automatically runs when pushing to Claude branches to verify data download and processing:
+
+```bash
+# Run local test (downloads minimal dataset)
+python scripts/test_download.py
+
+# The test workflow will:
+# - Download and process a single forecast cycle
+# - Verify data integrity
+# - Upload results as artifacts
+```
+
+The test workflow triggers on any push to branches matching `claude/**` and validates the entire data pipeline.
+
 ## Data Structure
 
 The Zarr datasets include the following dimensions:
