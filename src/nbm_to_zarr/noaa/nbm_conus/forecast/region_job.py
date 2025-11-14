@@ -113,12 +113,33 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
         # Download if not already cached
         if not file_path.exists():
-            response = requests.get(url, stream=True, timeout=30)
-            response.raise_for_status()
+            print(f"  Downloading {filename} ({source_coord.forecast_hour}h forecast)...")
 
-            with open(file_path, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            # Retry logic for network issues
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(url, stream=True, timeout=60)
+                    response.raise_for_status()
+
+                    # Write to temporary file first
+                    temp_path = file_path.with_suffix('.tmp')
+                    with open(temp_path, "wb") as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+
+                    # Move to final location
+                    temp_path.rename(file_path)
+                    break
+
+                except (requests.RequestException, IOError) as e:
+                    if attempt < max_retries - 1:
+                        print(f"  Attempt {attempt + 1} failed: {e}. Retrying...")
+                        continue
+                    else:
+                        raise
+        else:
+            print(f"  Using cached {filename}")
 
         return file_path
 
@@ -131,34 +152,48 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         """
         data_dict: dict[str, np.ndarray] = {}
 
-        with rasterio.open(file_path) as src:
-            # Read metadata for all bands
-            tags_list = [src.tags(i) for i in range(1, src.count + 1)]
+        try:
+            with rasterio.open(file_path) as src:
+                # Read metadata for all bands
+                tags_list = [src.tags(i) for i in range(1, src.count + 1)]
 
-            # Process each requested variable
-            for var_config in self.data_vars:
-                if var_config.name not in self.VARIABLE_MAPPING:
-                    continue
+                # Process each requested variable
+                for var_config in self.data_vars:
+                    if var_config.name not in self.VARIABLE_MAPPING:
+                        continue
 
-                var_info = self.VARIABLE_MAPPING[var_config.name]
+                    var_info = self.VARIABLE_MAPPING[var_config.name]
 
-                # Find matching band
-                for band_idx, tags in enumerate(tags_list, start=1):
-                    # Match by GRIB parameter name and level
-                    grib_name = tags.get("GRIB_ELEMENT", "")
-                    grib_level = tags.get("GRIB_SHORT_NAME", "")
+                    # Find matching band
+                    found = False
+                    for band_idx, tags in enumerate(tags_list, start=1):
+                        # Match by GRIB parameter name
+                        # Try different possible tag names
+                        grib_name = tags.get("GRIB_ELEMENT", "")
+                        if not grib_name:
+                            grib_name = tags.get("GRIB_COMMENT", "")
+                        if not grib_name:
+                            grib_name = tags.get("long_name", "")
 
-                    if var_info["name"] in grib_name:
-                        # Read the band data
-                        data = src.read(band_idx)
+                        if var_info["name"] in grib_name:
+                            # Read the band data
+                            data = src.read(band_idx)
 
-                        # Handle missing values
-                        nodata = src.nodata
-                        if nodata is not None:
-                            data = np.where(data == nodata, np.nan, data)
+                            # Handle missing values
+                            nodata = src.nodata
+                            if nodata is not None:
+                                data = np.where(data == nodata, np.nan, data)
 
-                        data_dict[var_config.name] = data
-                        break
+                            data_dict[var_config.name] = data
+                            found = True
+                            break
+
+                    if not found:
+                        print(f"  Warning: Variable {var_config.name} ({var_info['name']}) not found in GRIB file")
+
+        except Exception as e:
+            print(f"  Error reading GRIB file {file_path}: {e}")
+            raise
 
         return data_dict
 

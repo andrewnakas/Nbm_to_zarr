@@ -118,6 +118,21 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
 
         return result
 
+    def get_indices(self, source_coord: SourceFileCoordT) -> dict[str, int]:
+        """Get dataset indices for a source coordinate.
+
+        Subclasses should override this if they have specific indexing logic.
+        Default implementation assumes source_coord has init_time and forecast_hour attributes.
+        """
+        # This is a generic implementation that assumes certain attributes
+        # Subclasses can override for custom behavior
+        if hasattr(source_coord, 'init_time') and hasattr(source_coord, 'forecast_hour'):
+            return {
+                'init_time': source_coord.init_time,
+                'forecast_hour': source_coord.forecast_hour,
+            }
+        raise NotImplementedError("Subclass must override get_indices() method")
+
     def process(self) -> xr.Dataset:
         """Process the region and return the populated dataset."""
         # Generate source file coordinates
@@ -137,10 +152,18 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
             append_dim_freq="1H",
         )
 
+        # Create lead_time coordinate values
+        lead_times = pd.to_timedelta(np.arange(self.template_config.dimensions['lead_time']), unit='h')
+        ds = ds.assign_coords(lead_time=lead_times)
+
+        print(f"Processing {len(source_coords)} source files...")
+
         # Process each source file
+        processed_count = 0
         for source_coord in source_coords:
             try:
                 # Download file
+                print(f"Downloading: {source_coord.download_url()}")
                 file_path = self.download_file(source_coord)
 
                 # Read data
@@ -153,21 +176,40 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
                     data_dict = result
                     metadata = {}
 
+                # Get indices for this source coordinate
+                indices = self.get_indices(source_coord)
+                init_time = indices['init_time']
+                forecast_hour = indices['forecast_hour']
+
+                # Find the init_time index
+                init_idx = np.where(ds.init_time.values == init_time)[0]
+                if len(init_idx) == 0:
+                    print(f"Warning: init_time {init_time} not found in dataset")
+                    continue
+                init_idx = init_idx[0]
+
                 # Apply transformations and populate dataset
                 for var_config in self.data_vars:
                     if var_config.name in data_dict:
                         transformed_data = self.apply_transformations(
                             {var_config.name: data_dict[var_config.name]}, var_config
                         )
-                        # Populate the dataset with the data
-                        # This is a simplified version - actual implementation would need
-                        # proper indexing based on init_time and lead_time
-                        pass
+
+                        # Populate the dataset with the data at the correct indices
+                        data_array = transformed_data[var_config.name]
+                        ds[var_config.name].values[init_idx, forecast_hour, :, :] = data_array
+
+                processed_count += 1
+                if processed_count % 10 == 0:
+                    print(f"Processed {processed_count}/{len(source_coords)} files")
 
             except Exception as e:
                 print(f"Error processing {source_coord}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
 
+        print(f"Successfully processed {processed_count}/{len(source_coords)} files")
         return ds
 
     @classmethod
