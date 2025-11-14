@@ -1,6 +1,6 @@
 # NBM Data Summary
 
-Generated: 2025-11-14 20:37:04 UTC
+Generated: 2025-11-14 21:32:05 UTC
 
 ## Available Datasets
 
@@ -19,8 +19,8 @@ Generated: 2025-11-14 20:37:04 UTC
 - x: 2345
 
 **Forecast Initialization Times:** 1 cycles
-- First: 2025-11-26T06:00:00.000000000
-- Last: 2025-11-26T06:00:00.000000000
+- First: 2025-11-27T06:00:00.000000000
+- Last: 2025-11-27T06:00:00.000000000
 
 **Variables (19):**
 - `ceil`: Ceiling height
