@@ -80,7 +80,7 @@ def test_template_creation() -> bool:
                         ds = ds.assign_coords({coord_name: values})
                         print(f"    ✅ Removed timezone from {coord_name}")
 
-        ds.to_zarr(output_path, mode="w", consolidated=True)
+        ds.to_zarr(output_path, mode="w", consolidated=True, zarr_version=2)
 
         print(f"✅ Successfully saved to {output_path}")
         print(f"   Size: {sum(f.stat().st_size for f in output_path.rglob('*') if f.is_file()) / 1024:.1f} KB")

@@ -144,13 +144,14 @@ class Dataset(ABC, Generic[SourceFileCoordT, DataVarT]):
         print(f"Output path: {output_path}")
 
         try:
-            # Write to Zarr
+            # Write to Zarr (force v2 format for numcodecs compatibility)
             ds.to_zarr(
                 output_path,
                 mode=mode,
                 encoding=encoding,
                 consolidated=True,
                 compute=True,
+                zarr_version=2,
             )
             print(f"✅ Successfully wrote {output_path}")
 
