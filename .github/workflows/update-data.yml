@@ -43,6 +43,10 @@ jobs:
         run: |
           uv pip install --system -e .
 
+      - name: Check and reset dimensions if needed
+        run: |
+          python scripts/check_and_reset_dimensions.py
+
       - name: Run operational update
         run: |
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./data
