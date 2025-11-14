@@ -71,8 +71,25 @@ jobs:
       - name: Commit and push changes
         run: |
           git add data/ catalog/ data_summary/
-          git diff --staged --quiet || git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          if ! git diff --staged --quiet; then
+            git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
+
+            # Retry push up to 3 times with pull --rebase if needed
+            for attempt in 1 2 3; do
+              if git push; then
+                echo "Successfully pushed on attempt $attempt"
+                break
+              elif [ $attempt -lt 3 ]; then
+                echo "Push failed on attempt $attempt, pulling and retrying..."
+                git pull --rebase origin $(git branch --show-current)
+              else
+                echo "Failed to push after 3 attempts"
+                exit 1
+              fi
+            done
+          else
+            echo "No changes to commit"
+          fi
 
       - name: Upload catalog for Pages deployment
         uses: actions/upload-artifact@v4
