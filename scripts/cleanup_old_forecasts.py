@@ -36,7 +36,13 @@ def cleanup_old_forecasts(max_age_hours: int = 24) -> None:
 
             # Find indices to keep
             init_times = pd.DatetimeIndex(ds[append_dim].values)
-            keep_mask = init_times >= cutoff_time
+
+            # Ensure both timestamps are timezone-naive for comparison
+            if init_times.tz is not None:
+                init_times = init_times.tz_localize(None)
+            cutoff_time_naive = cutoff_time.tz_localize(None) if cutoff_time.tz is not None else cutoff_time
+
+            keep_mask = init_times >= cutoff_time_naive
 
             if keep_mask.sum() == 0:
                 print(f"Warning: All data in {zarr_path} is older than cutoff")

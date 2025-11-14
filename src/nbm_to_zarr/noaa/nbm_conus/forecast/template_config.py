@@ -109,6 +109,11 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
             init_time_values = init_time_values.to_numpy(dtype='datetime64[ns]')
             print(f"DEBUG derive_coordinates: final init_time_values={init_time_values}")
 
+            # CRITICAL: Update the init_time coordinate to be timezone-naive datetime64[ns]
+            # This ensures it can be properly compared later
+            ds = ds.assign_coords(init_time=init_time_values)
+            print(f"DEBUG derive_coordinates: ds.init_time after assign={ds.init_time.values}, dtype={ds.init_time.dtype}")
+
             # Now we can safely add datetime64 + timedelta64
             valid_time_values = (
                 init_time_values[:, np.newaxis]
