@@ -42,11 +42,21 @@ jobs:
           echo "Testing basic template creation..."
           python scripts/test_basic.py
 
+      - name: Verify nbm-zarr command
+        run: |
+          echo "Checking if nbm-zarr command is available..."
+          which nbm-zarr || echo "nbm-zarr not found in PATH"
+          nbm-zarr --help || echo "nbm-zarr --help failed"
+
       - name: Test data fetch (single forecast)
         run: |
           echo "Testing NBM data download and processing..."
           set -x  # Enable command echoing
-          nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data 2>&1 | tee test_output.log
+          nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data 2>&1 | tee test_output.log || {
+            echo "Command failed with exit code $?"
+            echo "Attempting to run directly to see error..."
+            python -m nbm_to_zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data
+          }
           echo "Exit code: $?"
         timeout-minutes: 30
 
