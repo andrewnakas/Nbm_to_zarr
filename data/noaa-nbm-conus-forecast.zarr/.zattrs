@@ -1,0 +1,9 @@
+{
+  "id": "noaa-nbm-conus-forecast",
+  "title": "NOAA National Blend of Models (NBM) CONUS Forecast",
+  "description": "Hourly forecast data from the National Blend of Models (NBM) for the Continental United States (CONUS) on a 2.5 km Lambert Conformal grid",
+  "version": "4.3",
+  "provider": "NOAA/NWS/NCEP",
+  "model": "NBM",
+  "variant": "CONUS"
+}

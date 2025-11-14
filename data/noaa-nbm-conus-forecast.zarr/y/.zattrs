@@ -1,0 +1,7 @@
+{
+  "long_name": "y-coordinate in projection",
+  "units": "meters",
+  "_ARRAY_DIMENSIONS": [
+    "y"
+  ]
+}

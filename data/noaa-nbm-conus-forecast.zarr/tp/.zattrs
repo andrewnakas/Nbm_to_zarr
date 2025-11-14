@@ -1,0 +1,12 @@
+{
+  "long_name": "Total precipitation",
+  "units": "kg m-2",
+  "grid_mapping": "spatial_ref",
+  "coordinates": "spatial_ref valid_time",
+  "_ARRAY_DIMENSIONS": [
+    "init_time",
+    "lead_time",
+    "y",
+    "x"
+  ]
+}
