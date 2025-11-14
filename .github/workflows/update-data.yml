@@ -57,10 +57,6 @@ jobs:
         run: |
           python scripts/generate_catalog.py
 
-      - name: Keep only latest forecast run
-        run: |
-          python scripts/cleanup_old_forecasts.py
-
       - name: Create summary document
         run: |
           python scripts/create_summary.py
