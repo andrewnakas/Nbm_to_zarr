@@ -181,10 +181,21 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
                 init_time = indices['init_time']
                 forecast_hour = indices['forecast_hour']
 
+                # Normalize init_time to timezone-naive for comparison
+                # (dataset coords are timezone-naive after Zarr conversion)
+                if isinstance(init_time, pd.Timestamp) and init_time.tz is not None:
+                    init_time_naive = init_time.tz_localize(None).to_datetime64()
+                elif hasattr(init_time, 'tz') and init_time.tz is not None:
+                    init_time_naive = pd.Timestamp(init_time).tz_localize(None).to_datetime64()
+                else:
+                    init_time_naive = np.datetime64(init_time, 'ns')
+
                 # Find the init_time index
-                init_idx = np.where(ds.init_time.values == init_time)[0]
+                init_idx = np.where(ds.init_time.values == init_time_naive)[0]
                 if len(init_idx) == 0:
                     print(f"Warning: init_time {init_time} not found in dataset")
+                    print(f"  Tried to match: {init_time_naive}")
+                    print(f"  Available times: {ds.init_time.values}")
                     continue
                 init_idx = init_idx[0]
 

@@ -70,6 +70,13 @@ jobs:
           git diff --staged --quiet || git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
 
+      - name: Upload catalog for Pages deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-artifact
+          path: catalog/
+          retention-days: 1
+
   deploy-catalog:
     needs: update-data
     runs-on: ubuntu-latest
@@ -79,8 +86,11 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Download catalog artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: catalog-artifact
+          path: catalog
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
