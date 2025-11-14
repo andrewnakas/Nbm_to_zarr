@@ -91,7 +91,10 @@ class TemplateConfig(ABC, BaseModel, Generic[DataVarT]):
         self, start: pd.Timestamp, periods: int, freq: str | timedelta
     ) -> pd.DatetimeIndex:
         """Generate DatetimeIndex for the append dimension."""
-        return pd.date_range(start=start, periods=periods, freq=freq)
+        # Ensure timezone is preserved
+        result = pd.date_range(start=start, periods=periods, freq=freq, tz='UTC')
+        print(f"DEBUG append_dim_coordinates: start={start}, result[0]={result[0]}")
+        return result
 
     def get_template(
         self,

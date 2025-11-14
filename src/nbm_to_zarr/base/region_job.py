@@ -143,7 +143,11 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
             start=self.processing_region.init_time_start,
             end=self.processing_region.init_time_end,
             freq="1h",
+            tz="UTC",
         )
+
+        print(f"DEBUG process(): init_times={init_times}")
+        print(f"DEBUG process(): init_times[0]={init_times[0]}, type={type(init_times[0])}")
 
         # Build empty dataset
         ds = self.template_config.get_template(
@@ -151,6 +155,9 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
             append_dim_periods=len(init_times),
             append_dim_freq="1h",
         )
+
+        print(f"DEBUG process(): ds.init_time.values={ds.init_time.values}")
+        print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
 
         # Create lead_time coordinate values
         lead_times = pd.to_timedelta(np.arange(self.template_config.dimensions['lead_time']), unit='h')

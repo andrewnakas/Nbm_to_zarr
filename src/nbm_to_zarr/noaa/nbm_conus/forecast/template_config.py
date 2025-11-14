@@ -98,13 +98,16 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
             # Convert init_time to datetime64[ns] without timezone for numpy operations
             # Use pandas to handle timezone-aware datetimes properly
             init_time_values = pd.DatetimeIndex(ds.coords["init_time"].values)
+            print(f"DEBUG derive_coordinates: original init_time_values={init_time_values}, tz={init_time_values.tz}")
 
             # Remove timezone if present
             if init_time_values.tz is not None:
                 init_time_values = init_time_values.tz_localize(None)
+                print(f"DEBUG derive_coordinates: after tz_localize(None)={init_time_values}")
 
             # Convert to numpy array
             init_time_values = init_time_values.to_numpy(dtype='datetime64[ns]')
+            print(f"DEBUG derive_coordinates: final init_time_values={init_time_values}")
 
             # Now we can safely add datetime64 + timedelta64
             valid_time_values = (
