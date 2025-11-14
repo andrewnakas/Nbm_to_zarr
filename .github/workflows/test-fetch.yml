@@ -41,7 +41,6 @@ jobs:
         run: |
           echo "Testing NBM data download and processing..."
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data
-        continue-on-error: true
         timeout-minutes: 30
 
       - name: Check output
