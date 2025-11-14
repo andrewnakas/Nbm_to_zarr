@@ -94,6 +94,17 @@ class Dataset(ABC, Generic[SourceFileCoordT, DataVarT]):
         print(f"  Variables: {list(ds.data_vars.keys())}")
         print(f"  Coordinates: {list(ds.coords.keys())}")
 
+        # Remove timezone from datetime coordinates (Zarr doesn't support timezones)
+        for coord_name in ds.coords:
+            if ds[coord_name].dtype.kind == 'M':  # datetime type
+                # Check if it's timezone-aware
+                if hasattr(ds[coord_name].values, 'tz') and ds[coord_name].values.tz is not None:
+                    # Remove timezone
+                    import pandas as pd
+                    values = pd.DatetimeIndex(ds[coord_name].values).tz_localize(None).to_numpy()
+                    ds = ds.assign_coords({coord_name: values})
+                    print(f"  Removed timezone from {coord_name}")
+
         # Remove problematic attributes
         for var in ds.coords:
             if "units" in ds[var].attrs and var in ["init_time", "valid_time"]:
