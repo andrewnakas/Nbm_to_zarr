@@ -143,6 +143,21 @@ class Dataset(ABC, Generic[SourceFileCoordT, DataVarT]):
         print(f"Write mode: {mode}")
         print(f"Output path: {output_path}")
 
+        # If appending, filter out encoding for existing variables
+        # (xarray doesn't allow encoding to be specified for existing variables)
+        if mode == "a":
+            import zarr
+            existing_store = zarr.open_group(str(output_path), mode='r')
+            existing_vars = set(existing_store.array_keys())
+
+            # Only keep encoding for new variables
+            encoding = {k: v for k, v in encoding.items() if k not in existing_vars}
+
+            if encoding:
+                print(f"Encoding for new variables: {list(encoding.keys())}")
+            else:
+                print("No new variables to encode (all variables already exist)")
+
         try:
             # Write to Zarr (force v2 format for numcodecs compatibility)
             ds.to_zarr(
