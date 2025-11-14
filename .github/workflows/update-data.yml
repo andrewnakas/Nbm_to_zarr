@@ -11,11 +11,12 @@ on:
 
 concurrency:
   group: data-update
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: write
 
@@ -48,6 +49,7 @@ jobs:
           python scripts/check_and_reset_dimensions.py
 
       - name: Run operational update
+        timeout-minutes: 60
         run: |
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./data
 
