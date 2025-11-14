@@ -50,11 +50,22 @@ jobs:
 
       - name: Test data fetch (single forecast)
         timeout-minutes: 60
+        env:
+          NBM_MAX_FORECAST_HOUR: 5  # Test with just 5 hours first
         run: |
           echo "Testing NBM data download and processing..."
+          echo "Limiting to $NBM_MAX_FORECAST_HOUR forecast hours for initial test"
           set -x  # Enable command echoing
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data 2>&1 | tee test_output.log || {
-            echo "Command failed with exit code $?"
+            EXIT_CODE=$?
+            echo "Command failed with exit code $EXIT_CODE"
+            echo ""
+            echo "=== Showing last 100 lines of output ==="
+            tail -100 test_output.log || true
+            echo ""
+            echo "=== Checking for error logs ==="
+            cat /tmp/nbm_update.log 2>/dev/null || echo "No update log found"
+            echo ""
             echo "Attempting to run directly to see error..."
             python -m nbm_to_zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data
           }
@@ -65,6 +76,10 @@ jobs:
         run: |
           echo "=== Command Output Log ==="
           cat test_output.log || echo "No log file found"
+
+          echo ""
+          echo "=== Update Log ==="
+          cat /tmp/nbm_update.log 2>/dev/null || echo "No update log found"
 
           echo ""
           echo "=== Test Data Directory Contents ==="
@@ -128,5 +143,6 @@ jobs:
           path: |
             test_data/
             test_output.log
+            /tmp/nbm_update.log
             /tmp/nbm_downloads/
           retention-days: 1

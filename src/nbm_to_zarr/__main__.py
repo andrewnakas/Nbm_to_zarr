@@ -89,19 +89,47 @@ def operational_update(
     ] = Path("./data"),
 ) -> None:
     """Run an operational update for a dataset."""
-    if dataset_id not in DATASETS:
-        console.print(f"[red]Error: Unknown dataset ID '{dataset_id}'[/red]")
-        console.print("Use 'list-datasets' to see available options")
-        raise typer.Exit(1)
+    import sys
+    import traceback
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        if dataset_id not in DATASETS:
+            console.print(f"[red]Error: Unknown dataset ID '{dataset_id}'[/red]")
+            console.print("Use 'list-datasets' to see available options")
+            raise typer.Exit(1)
 
-    console.print(f"[cyan]Running operational update for {dataset_id}...[/cyan]")
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = DATASETS[dataset_id]()
-    dataset.operational_update(output_dir)
+        console.print(f"[cyan]Running operational update for {dataset_id}...[/cyan]")
 
-    console.print("[green]Operational update complete![/green]")
+        # Add detailed logging
+        import logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(sys.stdout),
+                logging.FileHandler('/tmp/nbm_update.log')
+            ]
+        )
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Creating dataset instance for {dataset_id}")
+        dataset = DATASETS[dataset_id]()
+
+        logger.info(f"Starting operational update to {output_dir}")
+        dataset.operational_update(output_dir)
+
+        console.print("[green]Operational update complete![/green]")
+
+    except KeyboardInterrupt:
+        console.print("[yellow]Operation interrupted by user[/yellow]")
+        sys.exit(130)
+    except Exception as e:
+        console.print(f"[red]FATAL ERROR: {e}[/red]")
+        traceback.print_exc()
+        console.print(f"\n[yellow]See /tmp/nbm_update.log for details[/yellow]")
+        sys.exit(1)
 
 
 @app.command()

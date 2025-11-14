@@ -77,14 +77,20 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         NBM is updated hourly with forecasts extending out to 72+ hours.
         Note: f000 (analysis) files often don't exist, so we start from f001.
         """
+        import os
+
         coords = []
+
+        # Allow limiting forecast hours via environment variable for testing
+        max_forecast_hour = int(os.environ.get('NBM_MAX_FORECAST_HOUR', '72'))
+        print(f"Generating source coords for forecast hours 1-{max_forecast_hour}")
 
         # Generate init times at hourly intervals
         current_time = self.processing_region.init_time_start
         while current_time <= self.processing_region.init_time_end:
-            # For each init time, generate forecast hours 1-72
+            # For each init time, generate forecast hours 1-max_forecast_hour
             # (skip f000 as it often doesn't exist)
-            for forecast_hour in range(1, 73):  # 1-72 inclusive
+            for forecast_hour in range(1, max_forecast_hour + 1):
                 coords.append(
                     NbmConusSourceFileCoord(
                         init_time=current_time,
@@ -95,6 +101,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
             current_time += timedelta(hours=1)
 
+        print(f"Generated {len(coords)} source file coordinates")
         return coords
 
     def download_file(self, source_coord: NbmConusSourceFileCoord) -> Path:
