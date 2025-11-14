@@ -55,16 +55,23 @@ def test_template_creation() -> bool:
             shutil.rmtree(output_path)
 
         # Remove timezone from datetime coordinates (Zarr doesn't support timezones)
+        print("\nChecking for timezones in coordinates...")
         for coord_name in ds.coords:
+            dtype_str = str(ds[coord_name].dtype)
+            print(f"  {coord_name}: dtype={dtype_str}")
+
             # Check if coordinate is datetime-like
-            if 'datetime64' in str(ds[coord_name].dtype):
+            if 'datetime64' in dtype_str:
+                print(f"    -> Is datetime type")
                 # Use pandas to handle timezone conversion robustly
                 dt_index = pd.DatetimeIndex(ds[coord_name].values)
+                print(f"    -> dt_index.tz = {dt_index.tz}")
                 if dt_index.tz is not None:
                     # Remove timezone
+                    print(f"    -> Removing timezone...")
                     values = dt_index.tz_localize(None).to_numpy()
                     ds = ds.assign_coords({coord_name: values})
-                    print(f"  Removed timezone from {coord_name}")
+                    print(f"    ✅ Removed timezone from {coord_name}")
 
         ds.to_zarr(output_path, mode="w", consolidated=True)
 
