@@ -32,7 +32,7 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
 
     dimensions: dict[str, int] = {
         "init_time": 1,  # Will be extended dynamically
-        "lead_time": 36,  # 1-36 hours inclusive (f000 often doesn't exist)
+        "lead_time": 37,  # 0-36 hours (f000 often doesn't exist, so 0h will be NaN)
         "y": 1597,
         "x": 2345,
     }

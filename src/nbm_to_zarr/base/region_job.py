@@ -159,8 +159,9 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
         print(f"DEBUG process(): ds.init_time.values={ds.init_time.values}")
         print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
 
-        # Create lead_time coordinate values (1-36 hours, f000 often doesn't exist)
-        lead_times = pd.to_timedelta(np.arange(1, self.template_config.dimensions['lead_time'] + 1), unit='h')
+        # Create lead_time coordinate values (0-36 hours)
+        # Note: f000 often doesn't exist, so lead_time[0] will remain NaN
+        lead_times = pd.to_timedelta(np.arange(self.template_config.dimensions['lead_time']), unit='h')
         ds = ds.assign_coords(lead_time=lead_times)
 
         print(f"Processing {len(source_coords)} source files...")
@@ -214,10 +215,10 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
                         )
 
                         # Populate the dataset with the data at the correct indices
-                        # forecast_hour is 1-36, but array indices are 0-35
+                        # forecast_hour is 1-36, maps directly to lead_time indices 1-36
+                        # (index 0 is 0h/f000 which we skip, so it remains NaN)
                         data_array = transformed_data[var_config.name]
-                        lead_time_idx = forecast_hour - 1
-                        ds[var_config.name].values[init_idx, lead_time_idx, :, :] = data_array
+                        ds[var_config.name].values[init_idx, forecast_hour, :, :] = data_array
 
                 processed_count += 1
                 if processed_count % 10 == 0:
