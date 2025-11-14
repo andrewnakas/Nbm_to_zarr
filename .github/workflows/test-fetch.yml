@@ -6,6 +6,10 @@ on:
       - 'claude/**'
   workflow_dispatch:  # Allow manual triggering
 
+concurrency:
+  group: test-fetch-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   test-fetch:
     runs-on: ubuntu-latest
