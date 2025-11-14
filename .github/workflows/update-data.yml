@@ -1,0 +1,95 @@
+name: Update NBM Data
+
+on:
+  schedule:
+    # Run every hour at minute 15
+    - cron: '15 * * * *'
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: data-update
+  cancel-in-progress: true
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Create necessary directories
+        run: |
+          mkdir -p data
+          mkdir -p catalog
+          mkdir -p data_summary
+
+      - name: Install package
+        run: |
+          uv pip install --system -e .
+
+      - name: Run operational update
+        run: |
+          nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./data
+
+      - name: Generate catalog metadata
+        run: |
+          python scripts/generate_catalog.py
+
+      - name: Implement rolling 24-hour retention
+        run: |
+          python scripts/cleanup_old_forecasts.py --max-age-hours 24
+
+      - name: Create summary document
+        run: |
+          python scripts/create_summary.py
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add data/ catalog/ data_summary/
+          git diff --staged --quiet || git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
+
+  deploy-catalog:
+    needs: update-data
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './catalog'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
