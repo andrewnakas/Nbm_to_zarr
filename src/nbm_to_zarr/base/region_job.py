@@ -159,8 +159,8 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
         print(f"DEBUG process(): ds.init_time.values={ds.init_time.values}")
         print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
 
-        # Create lead_time coordinate values
-        lead_times = pd.to_timedelta(np.arange(self.template_config.dimensions['lead_time']), unit='h')
+        # Create lead_time coordinate values (1-36 hours, f000 often doesn't exist)
+        lead_times = pd.to_timedelta(np.arange(1, self.template_config.dimensions['lead_time'] + 1), unit='h')
         ds = ds.assign_coords(lead_time=lead_times)
 
         print(f"Processing {len(source_coords)} source files...")
@@ -214,8 +214,10 @@ class RegionJob(ABC, Generic[SourceFileCoordT, DataVarT]):
                         )
 
                         # Populate the dataset with the data at the correct indices
+                        # forecast_hour is 1-36, but array indices are 0-35
                         data_array = transformed_data[var_config.name]
-                        ds[var_config.name].values[init_idx, forecast_hour, :, :] = data_array
+                        lead_time_idx = forecast_hour - 1
+                        ds[var_config.name].values[init_idx, lead_time_idx, :, :] = data_array
 
                 processed_count += 1
                 if processed_count % 10 == 0:
