@@ -26,12 +26,12 @@ def test_template_creation() -> bool:
 
         # Try to create a minimal template
         print("\nCreating minimal template...")
-        start_time = pd.Timestamp.now(tz="UTC").floor("H")
+        start_time = pd.Timestamp.now(tz="UTC").floor("h")
 
         ds = config.get_template(
             append_dim_start=start_time,
             append_dim_periods=1,  # Just 1 time step
-            append_dim_freq="1H",
+            append_dim_freq="1h",
         )
 
         print(f"✅ Template created successfully")

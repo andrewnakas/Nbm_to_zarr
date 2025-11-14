@@ -96,13 +96,15 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
         # Add valid_time coordinate
         if "init_time" in ds.coords and "lead_time" in ds.coords:
             # Convert init_time to datetime64[ns] without timezone for numpy operations
-            init_time_values = ds.coords["init_time"].values
-            if hasattr(init_time_values[0], 'tz_localize'):
-                # Pandas Timestamp with timezone - convert to UTC then remove tz
-                init_time_values = np.array([pd.Timestamp(t).tz_localize(None) for t in init_time_values], dtype='datetime64[ns]')
-            elif isinstance(init_time_values[0], pd.Timestamp):
-                # Convert pandas Timestamp to numpy datetime64
-                init_time_values = init_time_values.astype('datetime64[ns]')
+            # Use pandas to handle timezone-aware datetimes properly
+            init_time_values = pd.DatetimeIndex(ds.coords["init_time"].values)
+
+            # Remove timezone if present
+            if init_time_values.tz is not None:
+                init_time_values = init_time_values.tz_localize(None)
+
+            # Convert to numpy array
+            init_time_values = init_time_values.to_numpy(dtype='datetime64[ns]')
 
             # Now we can safely add datetime64 + timedelta64
             valid_time_values = (
