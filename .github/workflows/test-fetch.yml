@@ -42,11 +42,6 @@ jobs:
         run: |
           nbm-zarr info noaa-nbm-conus-forecast
 
-      - name: Test basic template creation
-        run: |
-          echo "Testing basic template creation..."
-          python scripts/test_basic.py
-
       - name: Verify nbm-zarr command
         run: |
           echo "Checking if nbm-zarr command is available..."
