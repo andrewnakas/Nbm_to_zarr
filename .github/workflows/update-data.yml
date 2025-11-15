@@ -51,7 +51,18 @@ jobs:
       - name: Run operational update
         timeout-minutes: 60
         run: |
+          set -e  # Exit on any error
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./data
+
+      - name: Verify Zarr store was created
+        run: |
+          if [ ! -f "data/noaa-nbm-conus-forecast.zarr/.zmetadata" ]; then
+            echo "ERROR: Zarr store was not created successfully!"
+            echo "Contents of data directory:"
+            ls -la data/
+            exit 1
+          fi
+          echo "✅ Zarr store created successfully"
 
       - name: Generate catalog metadata
         run: |

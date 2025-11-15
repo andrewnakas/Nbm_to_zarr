@@ -7,6 +7,10 @@ on:
       - completed
   workflow_dispatch:  # Allow manual triggering
 
+concurrency:
+  group: data-update
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
