@@ -55,11 +55,9 @@ jobs:
 
       - name: Test data fetch (single forecast)
         timeout-minutes: 60
-        env:
-          NBM_MAX_FORECAST_HOUR: 5  # Test with just 5 hours first
         run: |
           echo "Testing NBM data download and processing..."
-          echo "Limiting to $NBM_MAX_FORECAST_HOUR forecast hours for initial test"
+          echo "Full 48 forecast files (1-36h hourly + 38-71h 3-hourly)"
           set -x  # Enable command echoing
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data 2>&1 | tee test_output.log || {
             EXIT_CODE=$?

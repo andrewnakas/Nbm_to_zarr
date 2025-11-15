@@ -45,7 +45,49 @@ class NbmConusSourceFileCoord(SourceFileCoord):
 
 
 class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableConfig]):
-    """Process NBM CONUS forecast data for a temporal region."""
+    """Process NBM CONUS forecast data for a temporal region.
+
+    NBM forecast hour structure:
+    - Hours 1-36: Hourly resolution
+    - Hours 38-71: 3-hourly resolution (38, 41, 44, ...)
+    """
+
+    @staticmethod
+    def get_forecast_hours() -> list[int]:
+        """Return list of available forecast hours."""
+        # Hourly from 1-36
+        hourly = list(range(1, 37))
+        # Every 3 hours from 38-71
+        three_hourly = list(range(38, 72, 3))
+        return hourly + three_hourly
+
+    @staticmethod
+    def get_lead_time_hours() -> list[int]:
+        """Return list of all lead time hours (including 0h analysis).
+
+        Returns:
+            [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71]
+        """
+        # Include 0h (analysis, often missing)
+        return [0] + NbmConusForecastRegionJob.get_forecast_hours()
+
+    @staticmethod
+    def forecast_hour_to_lead_time_index(forecast_hour: int) -> int:
+        """Map forecast hour to lead_time dimension index.
+
+        Args:
+            forecast_hour: The forecast hour (1-36 hourly, 38-71 every 3h)
+
+        Returns:
+            Index in the lead_time dimension
+        """
+        if forecast_hour <= 36:
+            # Hourly: index = forecast_hour (index 0 is 0h, 1 is 1h, etc.)
+            return forecast_hour
+        else:
+            # 3-hourly: starts at index 37
+            # 38 -> 37, 41 -> 38, 44 -> 39, etc.
+            return 37 + (forecast_hour - 38) // 3
 
     # Variable mapping from standard names to actual NBM GRIB2 element names
     # Based on inspection of NBM GRIB2 files
@@ -74,23 +116,31 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
     def generate_source_file_coords(self) -> list[NbmConusSourceFileCoord]:
         """Generate source file coordinates for the processing region.
 
-        NBM is updated hourly with forecasts extending out to 72+ hours.
+        NBM has hourly forecasts from 1-36h, then 3-hourly from 38-71h.
         Note: f000 (analysis) files often don't exist, so we start from f001.
         """
         import os
 
         coords = []
 
+        # Get the list of available forecast hours
+        forecast_hours = self.get_forecast_hours()
+
         # Allow limiting forecast hours via environment variable for testing
-        max_forecast_hour = int(os.environ.get('NBM_MAX_FORECAST_HOUR', '72'))
-        print(f"Generating source coords for forecast hours 1-{max_forecast_hour}")
+        max_forecast_hour = int(os.environ.get('NBM_MAX_FORECAST_HOUR', '71'))
+        forecast_hours = [h for h in forecast_hours if h <= max_forecast_hour]
+
+        print(f"Generating source coords for {len(forecast_hours)} forecast hours:")
+        print(f"  Hours 1-36: hourly")
+        if max_forecast_hour > 36:
+            three_hourly_count = len([h for h in forecast_hours if h > 36])
+            print(f"  Hours 38-{max_forecast_hour}: every 3 hours ({three_hourly_count} files)")
 
         # Generate init times at hourly intervals
         current_time = self.processing_region.init_time_start
         while current_time <= self.processing_region.init_time_end:
-            # For each init time, generate forecast hours 1-max_forecast_hour
-            # (skip f000 as it often doesn't exist)
-            for forecast_hour in range(1, max_forecast_hour + 1):
+            # For each init time, generate coords for available forecast hours
+            for forecast_hour in forecast_hours:
                 coords.append(
                     NbmConusSourceFileCoord(
                         init_time=current_time,
@@ -253,6 +303,124 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
             raise
 
         return data_dict
+
+    def process(self) -> xr.Dataset:
+        """Process the region and return the populated dataset.
+
+        Overrides base class to set up irregular lead_time coordinate.
+        """
+        # Generate source file coordinates
+        source_coords = self.generate_source_file_coords()
+
+        # Create dimension coordinates
+        init_times = pd.date_range(
+            start=self.processing_region.init_time_start,
+            end=self.processing_region.init_time_end,
+            freq="1h",
+            tz="UTC",
+        )
+
+        print(f"DEBUG process(): init_times={init_times}")
+        print(f"DEBUG process(): init_times[0]={init_times[0]}, type={type(init_times[0])}")
+
+        # Build empty dataset
+        ds = self.template_config.get_template(
+            append_dim_start=init_times[0],
+            append_dim_periods=len(init_times),
+            append_dim_freq="1h",
+        )
+
+        print(f"DEBUG process(): ds.init_time.values={ds.init_time.values}")
+        print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
+
+        # Create irregular lead_time coordinate values for NBM
+        # [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71]
+        lead_time_hours = self.get_lead_time_hours()
+        lead_times = pd.to_timedelta(lead_time_hours, unit='h')
+        ds = ds.assign_coords(lead_time=lead_times)
+
+        print(f"Lead time values: {lead_time_hours}")
+        print(f"Processing {len(source_coords)} source files...")
+        print(f"Total data to download: ~{len(source_coords) * 150 / 1024:.1f} GB")
+
+        # Process each source file
+        processed_count = 0
+        for idx, source_coord in enumerate(source_coords, 1):
+            try:
+                # Download file
+                print(f"[{idx}/{len(source_coords)}] Downloading: {source_coord.download_url()}")
+                file_path = self.download_file(source_coord)
+
+                # Read data
+                result = self.read_data(file_path, source_coord)
+
+                # Handle backward compatibility
+                if isinstance(result, tuple):
+                    data_dict, metadata = result
+                else:
+                    data_dict = result
+                    metadata = {}
+
+                # Get indices for this source coordinate
+                indices = self.get_indices(source_coord)
+                init_time = indices['init_time']
+                forecast_hour = indices['forecast_hour']
+
+                # Normalize init_time to timezone-naive for comparison
+                # (dataset coords are timezone-naive after Zarr conversion)
+                if isinstance(init_time, pd.Timestamp) and init_time.tz is not None:
+                    init_time_naive = init_time.tz_localize(None).to_datetime64()
+                elif hasattr(init_time, 'tz') and init_time.tz is not None:
+                    init_time_naive = pd.Timestamp(init_time).tz_localize(None).to_datetime64()
+                else:
+                    init_time_naive = np.datetime64(init_time, 'ns')
+
+                # Find the init_time index
+                init_idx = np.where(ds.init_time.values == init_time_naive)[0]
+                if len(init_idx) == 0:
+                    print(f"Warning: init_time {init_time} not found in dataset")
+                    print(f"  Tried to match: {init_time_naive}")
+                    print(f"  Available times: {ds.init_time.values}")
+                    continue
+                init_idx = init_idx[0]
+
+                # Apply transformations and populate dataset
+                for var_config in self.data_vars:
+                    if var_config.name in data_dict:
+                        transformed_data = self.apply_transformations(
+                            {var_config.name: data_dict[var_config.name]}, var_config
+                        )
+
+                        # Populate the dataset with the data at the correct indices
+                        # forecast_hour is the lead_time index (already mapped by get_indices)
+                        data_array = transformed_data[var_config.name]
+                        ds[var_config.name].values[init_idx, forecast_hour, :, :] = data_array
+
+                processed_count += 1
+                # Report progress more frequently for long downloads
+                if processed_count % 5 == 0 or processed_count == len(source_coords):
+                    pct = (processed_count / len(source_coords)) * 100
+                    print(f"✅ Progress: {processed_count}/{len(source_coords)} files ({pct:.1f}%)")
+
+            except Exception as e:
+                print(f"Error processing {source_coord}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+
+        print(f"Successfully processed {processed_count}/{len(source_coords)} files")
+        return ds
+
+    def get_indices(self, source_coord: NbmConusSourceFileCoord) -> dict[str, int]:
+        """Get dataset indices for a source coordinate.
+
+        Maps forecast_hour to the appropriate lead_time index based on NBM's
+        irregular time structure (hourly 1-36, then 3-hourly).
+        """
+        return {
+            'init_time': source_coord.init_time,
+            'forecast_hour': self.forecast_hour_to_lead_time_index(source_coord.forecast_hour),
+        }
 
     @classmethod
     def operational_update_jobs(
