@@ -27,13 +27,13 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
 
     Temporal configuration:
     - Update frequency: Hourly
-    - Forecast hours: 1-36 hourly, then 38-71 every 3 hours
-    - Total: 49 lead times (0h analysis + 36 hourly + 12 three-hourly)
+    - Forecast hours: 1-36 hourly, then 38-84 every 3 hours
+    - Total: 53 lead times (0h analysis + 36 hourly + 16 three-hourly)
     """
 
     dimensions: dict[str, int] = {
         "init_time": 1,  # Will be extended dynamically
-        "lead_time": 49,  # 0-36h hourly + 38-71h every 3h
+        "lead_time": 53,  # 0-36h hourly + 38-84h every 3h
         "y": 1597,
         "x": 2345,
     }
@@ -170,7 +170,7 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
         # Common chunking strategy
         chunks = {
             "init_time": 1,
-            "lead_time": 49,  # All lead times in one chunk
+            "lead_time": 53,  # All lead times in one chunk
             "y": 266,  # ~1597/6
             "x": 391,  # ~2345/6
         }

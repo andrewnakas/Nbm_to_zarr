@@ -49,7 +49,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
     NBM forecast hour structure:
     - Hours 1-36: Hourly resolution
-    - Hours 38-71: 3-hourly resolution (38, 41, 44, ...)
+    - Hours 38-84: 3-hourly resolution (38, 41, 44, ..., 83)
     """
 
     @staticmethod
@@ -57,8 +57,8 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         """Return list of available forecast hours."""
         # Hourly from 1-36
         hourly = list(range(1, 37))
-        # Every 3 hours from 38-71
-        three_hourly = list(range(38, 72, 3))
+        # Every 3 hours from 38-84
+        three_hourly = list(range(38, 85, 3))
         return hourly + three_hourly
 
     @staticmethod
@@ -66,7 +66,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         """Return list of all lead time hours (including 0h analysis).
 
         Returns:
-            [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71]
+            [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83]
         """
         # Include 0h (analysis, often missing)
         return [0] + NbmConusForecastRegionJob.get_forecast_hours()
@@ -116,7 +116,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
     def generate_source_file_coords(self) -> list[NbmConusSourceFileCoord]:
         """Generate source file coordinates for the processing region.
 
-        NBM has hourly forecasts from 1-36h, then 3-hourly from 38-71h.
+        NBM has hourly forecasts from 1-36h, then 3-hourly from 38-84h.
         Note: f000 (analysis) files often don't exist, so we start from f001.
         """
         import os
@@ -127,7 +127,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         forecast_hours = self.get_forecast_hours()
 
         # Allow limiting forecast hours via environment variable for testing
-        max_forecast_hour = int(os.environ.get('NBM_MAX_FORECAST_HOUR', '71'))
+        max_forecast_hour = int(os.environ.get('NBM_MAX_FORECAST_HOUR', '84'))
         forecast_hours = [h for h in forecast_hours if h <= max_forecast_hour]
 
         print(f"Generating source coords for {len(forecast_hours)} forecast hours:")
@@ -334,7 +334,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
 
         # Create irregular lead_time coordinate values for NBM
-        # [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71]
+        # [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83]
         lead_time_hours = self.get_lead_time_hours()
         lead_times = pd.to_timedelta(lead_time_hours, unit='h')
         ds = ds.assign_coords(lead_time=lead_times)
