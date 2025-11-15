@@ -1,7 +1,0 @@
-{
-  "units": "days since 2025-11-15 02:00:00",
-  "calendar": "proleptic_gregorian",
-  "_ARRAY_DIMENSIONS": [
-    "init_time"
-  ]
-}
