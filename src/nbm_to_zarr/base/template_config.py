@@ -103,6 +103,8 @@ class TemplateConfig(ABC, BaseModel, Generic[DataVarT]):
         append_dim_freq: str | timedelta,
     ) -> xr.Dataset:
         """Create an empty xarray Dataset template with proper structure."""
+        import dask.array as da
+
         # Create append dimension coordinates
         append_coords = self.append_dim_coordinates(
             start=append_dim_start,
@@ -127,15 +129,22 @@ class TemplateConfig(ABC, BaseModel, Generic[DataVarT]):
         # Derive additional coordinates
         ds = self.derive_coordinates(ds)
 
-        # Create data variables
+        # Create data variables using dask arrays (lazy, not materialized in memory)
         for var_config in self.data_vars:
             chunks = var_config.chunks or {dim: size for dim, size in self.dimensions.items()}
+            shape = tuple(self.dimensions.get(dim, len(coords_dict[dim])) for dim in chunks.keys())
+            chunk_sizes = tuple(chunks.get(dim, self.dimensions.get(dim, len(coords_dict[dim]))) for dim in chunks.keys())
+
+            # Use dask to create a lazy array filled with NaN
+            dask_array = da.full(
+                shape,
+                np.nan,
+                dtype=var_config.dtype,
+                chunks=chunk_sizes,
+            )
+
             ds[var_config.name] = xr.DataArray(
-                data=np.full(
-                    [self.dimensions.get(dim, len(coords_dict[dim])) for dim in chunks.keys()],
-                    np.nan,
-                    dtype=var_config.dtype,
-                ),
+                data=dask_array,
                 dims=list(chunks.keys()),
                 attrs=var_config.attrs,
             )
