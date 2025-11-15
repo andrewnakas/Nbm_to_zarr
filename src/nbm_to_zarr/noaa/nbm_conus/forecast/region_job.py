@@ -343,6 +343,14 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         print(f"Processing {len(source_coords)} source files...")
         print(f"Total data to download: ~{len(source_coords) * 150 / 1024:.1f} GB")
 
+        # CRITICAL: Convert dask arrays to numpy arrays to enable in-place assignment
+        # If we don't do this, assignments to .values won't persist because dask arrays are lazy/immutable
+        print("Converting dask arrays to numpy for data population...")
+        for var_name in ds.data_vars:
+            if hasattr(ds[var_name].data, 'compute'):  # Check if it's a dask array
+                ds[var_name].data = ds[var_name].data.compute()
+        print("✅ Arrays converted to numpy")
+
         # Process each source file
         processed_count = 0
         for idx, source_coord in enumerate(source_coords, 1):

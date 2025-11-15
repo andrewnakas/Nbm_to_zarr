@@ -57,12 +57,28 @@ jobs:
       - name: Verify Zarr store was created
         run: |
           if [ ! -f "data/noaa-nbm-conus-forecast.zarr/.zmetadata" ]; then
-            echo "ERROR: Zarr store was not created successfully!"
+            echo "ERROR: Zarr store metadata was not created!"
             echo "Contents of data directory:"
             ls -la data/
             exit 1
           fi
-          echo "✅ Zarr store created successfully"
+
+          # Check that at least one variable has actual data chunks (not just .zarray/.zattrs)
+          # Variables should have chunk files like t2m/0.0.0.0 or similar
+          data_chunks=$(find data/noaa-nbm-conus-forecast.zarr/t2m -type f ! -name ".z*" 2>/dev/null | wc -l)
+          if [ "$data_chunks" -eq 0 ]; then
+            echo "ERROR: Zarr store structure exists but NO VARIABLE DATA was written!"
+            echo "This means the operational update failed to populate weather data."
+            echo ""
+            echo "Checking what files exist for t2m variable:"
+            ls -la data/noaa-nbm-conus-forecast.zarr/t2m/ || echo "t2m directory not found"
+            echo ""
+            echo "Checking for any data chunks in entire store:"
+            find data/noaa-nbm-conus-forecast.zarr -type f ! -name ".z*" | head -20
+            exit 1
+          fi
+
+          echo "✅ Zarr store created successfully with $data_chunks data chunk(s) for t2m variable"
 
       - name: Generate catalog metadata
         run: |
