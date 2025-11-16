@@ -12,8 +12,8 @@
 - **Grid dimensions**: 2345 × 1597 points
 - **Time domain**: Forecasts initialized hourly from 2025-11-15 00:00:00 UTC to Present
 - **Time resolution**: Forecasts initialized every hour
-- **Forecast domain**: 0-84 hours (0-3.5 days) ahead
-- **Forecast resolution**: Hourly for first 36 hours, then 3-hourly (38, 41, 44, ..., 83h)
+- **Forecast domain**: 1-84 hours (up to 3.5 days) ahead
+- **Forecast resolution**: Hourly for hours 1-36, then 3-hourly (39, 42, 45, ..., 84h)
 
 ---
 
@@ -63,11 +63,11 @@ print(f"Temperature range: {t2m_6h.min().values:.1f} - {t2m_6h.max().values:.1f}
 | Dimension | Type | Size | Description |
 |-----------|------|------|-------------|
 | `init_time` | datetime64[ns] | dynamic | Forecast initialization time (UTC) |
-| `lead_time` | timedelta64[ns] | 53 | Forecast lead time (0-36h hourly, then 38-84h every 3h) |
+| `lead_time` | timedelta64[ns] | 52 | Forecast lead time (1-36h hourly, then 39-84h every 3h) |
 | `y` | int32 | 1597 | North-south grid coordinate (Lambert Conformal projection) |
 | `x` | int32 | 2345 | East-west grid coordinate (Lambert Conformal projection) |
 
-**Note**: The `lead_time` dimension has irregular spacing: `[0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83]` hours.
+**Note**: The `lead_time` dimension has irregular spacing: `[1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]` hours. Hour 0 (analysis) is NOT available in NBM CONUS.
 
 ---
 

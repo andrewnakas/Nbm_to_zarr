@@ -27,13 +27,14 @@ class NbmConusTemplateConfig(TemplateConfig[DataVariableConfig]):
 
     Temporal configuration:
     - Update frequency: Hourly
-    - Forecast hours: 1-36 hourly, then 38-84 every 3 hours
-    - Total: 53 lead times (0h analysis + 36 hourly + 16 three-hourly)
+    - Forecast hours: 1-36 hourly, then 39-84 every 3 hours
+    - Total: 52 lead times (36 hourly + 16 three-hourly)
+    - Note: Hour 0 (analysis) is NOT available in NBM
     """
 
     dimensions: dict[str, int] = {
         "init_time": 1,  # Will be extended dynamically
-        "lead_time": 53,  # 0-36h hourly + 38-84h every 3h
+        "lead_time": 52,  # 1-36h hourly + 39-84h every 3h (NO hour 0)
         "y": 1597,
         "x": 2345,
     }

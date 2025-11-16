@@ -48,46 +48,62 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
     """Process NBM CONUS forecast data for a temporal region.
 
     NBM forecast hour structure:
-    - Hours 1-36: Hourly resolution
-    - Hours 38-84: 3-hourly resolution (38, 41, 44, ..., 83)
+    - Hours 1-36: Hourly resolution (36 hours)
+    - Hours 39-84: 3-hourly resolution (16 hours: 39, 42, 45, ..., 84)
+    - Total: 52 forecast hours
+    - Note: Hour 0 (analysis) is NOT available in NBM CONUS
     """
 
     @staticmethod
     def get_forecast_hours() -> list[int]:
-        """Return list of available forecast hours."""
+        """Return list of available forecast hours.
+
+        NBM provides:
+        - Hours 1-36: Hourly
+        - Hours 39-84: Every 3 hours (39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84)
+
+        Note: Hour 0 (analysis) is NOT available in NBM CONUS.
+        """
         # Hourly from 1-36
         hourly = list(range(1, 37))
-        # Every 3 hours from 38-84
-        three_hourly = list(range(38, 85, 3))
+        # Every 3 hours from 39-84 (not 38!)
+        three_hourly = list(range(39, 85, 3))
         return hourly + three_hourly
 
     @staticmethod
     def get_lead_time_hours() -> list[int]:
-        """Return list of all lead time hours (including 0h analysis).
+        """Return list of all lead time hours.
 
         Returns:
-            [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83]
+            [1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
+
+        Note: NBM does NOT provide hour 0 (analysis).
         """
-        # Include 0h (analysis, often missing)
-        return [0] + NbmConusForecastRegionJob.get_forecast_hours()
+        return NbmConusForecastRegionJob.get_forecast_hours()
 
     @staticmethod
     def forecast_hour_to_lead_time_index(forecast_hour: int) -> int:
         """Map forecast hour to lead_time dimension index.
 
         Args:
-            forecast_hour: The forecast hour (1-36 hourly, 38-71 every 3h)
+            forecast_hour: The forecast hour (1-36 hourly, 39-84 every 3h)
 
         Returns:
-            Index in the lead_time dimension
+            Index in the lead_time dimension (0-based)
+
+        Examples:
+            - Hour 1 -> Index 0
+            - Hour 36 -> Index 35
+            - Hour 39 -> Index 36
+            - Hour 84 -> Index 51
         """
         if forecast_hour <= 36:
-            # Hourly: index = forecast_hour (index 0 is 0h, 1 is 1h, etc.)
-            return forecast_hour
+            # Hourly: hours 1-36 map to indices 0-35
+            return forecast_hour - 1
         else:
-            # 3-hourly: starts at index 37
-            # 38 -> 37, 41 -> 38, 44 -> 39, etc.
-            return 37 + (forecast_hour - 38) // 3
+            # 3-hourly: hours 39, 42, 45... map to indices 36, 37, 38...
+            # Hour 39 -> index 36, Hour 42 -> index 37, etc.
+            return 36 + (forecast_hour - 39) // 3
 
     # Variable mapping from standard names to actual NBM GRIB2 element names
     # Based on inspection of NBM GRIB2 files
@@ -334,7 +350,7 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
 
         # Create irregular lead_time coordinate values for NBM
-        # [0, 1, 2, ..., 36, 38, 41, 44, 47, 50, 53, 56, 59, 62, 65, 68, 71, 74, 77, 80, 83]
+        # [1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
         lead_time_hours = self.get_lead_time_hours()
         lead_times = pd.to_timedelta(lead_time_hours, unit='h')
         ds = ds.assign_coords(lead_time=lead_times)
