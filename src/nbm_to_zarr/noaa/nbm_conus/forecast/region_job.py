@@ -373,7 +373,9 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         # Download first file to extract spatial metadata
         print("Downloading first file to extract spatial coordinates...")
         first_file = self.download_file(source_coords[0])
-        _ = self.read_data(first_file, source_coords[0])  # This stores spatial metadata
+        first_data = self.read_data(first_file, source_coords[0])  # This stores spatial metadata AND data
+
+        # Note: Don't delete first file yet - we'll process its data below and then delete it
 
         # Create dimension coordinates
         init_times = pd.date_range(
@@ -422,12 +424,27 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         processed_count = 0
         for idx, source_coord in enumerate(source_coords, 1):
             try:
-                # Download file
-                print(f"[{idx}/{len(source_coords)}] Downloading: {source_coord.download_url()}")
-                file_path = self.download_file(source_coord)
+                # Check if this is the first file we already downloaded
+                if idx == 1:
+                    # Use data we already read
+                    file_path = first_file
+                    result = first_data
+                    print(f"[{idx}/{len(source_coords)}] Using first file (already downloaded for metadata)")
+                else:
+                    # Download file
+                    print(f"[{idx}/{len(source_coords)}] Downloading: {source_coord.download_url()}")
+                    file_path = self.download_file(source_coord)
 
-                # Read data
-                result = self.read_data(file_path, source_coord)
+                    # Read data
+                    result = self.read_data(file_path, source_coord)
+
+                # Delete GRIB file immediately after reading to free disk space
+                # Each file is ~150MB, keeping all 52 would use ~8GB
+                try:
+                    file_path.unlink()
+                    print(f"  ✓ Deleted GRIB file to free space")
+                except Exception as e:
+                    print(f"  Warning: Could not delete {file_path}: {e}")
 
                 # Handle backward compatibility
                 if isinstance(result, tuple):

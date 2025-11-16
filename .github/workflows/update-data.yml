@@ -21,10 +21,22 @@ jobs:
       contents: write
 
     steps:
+      - name: Free up disk space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          echo "=== Disk space after cleanup ==="
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1  # Shallow clone - only fetch latest commit, not full history
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -52,7 +64,19 @@ jobs:
         timeout-minutes: 60
         run: |
           set -e  # Exit on any error
+          echo "=== Disk space before download ==="
+          df -h
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./data
+          echo "=== Disk space after conversion ==="
+          df -h
+
+      - name: Clean up downloaded GRIB files
+        if: always()  # Run even if previous step fails
+        run: |
+          echo "Cleaning up temporary GRIB downloads..."
+          rm -rf /tmp/nbm_downloads || true
+          echo "=== Disk space after cleanup ==="
+          df -h
 
       - name: Verify Zarr store was created
         run: |
@@ -95,23 +119,23 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          # Check current disk space
+          echo "=== Disk space before commit ==="
+          df -h
+          du -sh data/ || echo "No data directory"
+
           git add data/ catalog/ data_summary/
           if ! git diff --staged --quiet; then
             git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
 
-            # Retry push up to 3 times with pull --rebase if needed
-            for attempt in 1 2 3; do
-              if git push; then
-                echo "Successfully pushed on attempt $attempt"
-                break
-              elif [ $attempt -lt 3 ]; then
-                echo "Push failed on attempt $attempt, pulling and retrying..."
-                git pull --rebase origin $(git branch --show-current)
-              else
-                echo "Failed to push after 3 attempts"
-                exit 1
-              fi
-            done
+            echo "=== Disk space after commit ==="
+            df -h
+
+            # Use force push for rolling data to prevent git history bloat
+            # This keeps only the latest version and prevents disk space issues
+            BRANCH=$(git branch --show-current)
+            echo "Force pushing to $BRANCH (rolling dataset - history not needed)"
+            git push --force origin $BRANCH
           else
             echo "No changes to commit"
           fi
