@@ -64,10 +64,12 @@ print(f"Temperature range: {t2m_6h.min().values:.1f} - {t2m_6h.max().values:.1f}
 |-----------|------|------|-------------|
 | `init_time` | datetime64[ns] | dynamic | Forecast initialization time (UTC) |
 | `lead_time` | timedelta64[ns] | 52 | Forecast lead time (1-36h hourly, then 39-84h every 3h) |
-| `y` | int32 | 1597 | North-south grid coordinate (Lambert Conformal projection) |
-| `x` | int32 | 2345 | East-west grid coordinate (Lambert Conformal projection) |
+| `y` | int32 | 1597 | North-south grid coordinate in projection meters (Lambert Conformal) |
+| `x` | int32 | 2345 | East-west grid coordinate in projection meters (Lambert Conformal) |
 
-**Note**: The `lead_time` dimension has irregular spacing: `[1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]` hours. Hour 0 (analysis) is NOT available in NBM CONUS.
+**Notes**:
+- The `lead_time` dimension has irregular spacing: `[1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]` hours. Hour 0 (analysis) is NOT available in NBM CONUS.
+- The `x` and `y` coordinates contain actual projection coordinates in meters (not array indices), enabling direct spatial selection with `ds.sel(x=meters, y=meters, method='nearest')`.
 
 ---
 

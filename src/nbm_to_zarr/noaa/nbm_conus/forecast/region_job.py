@@ -232,6 +232,16 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
         try:
             with rasterio.open(file_path) as src:
+                # Store spatial metadata for coordinate extraction (if not already stored)
+                if not hasattr(self, '_spatial_metadata'):
+                    self._spatial_metadata = {
+                        'transform': src.transform,
+                        'bounds': src.bounds,
+                        'crs': src.crs,
+                        'width': src.width,
+                        'height': src.height,
+                    }
+
                 # Read metadata for all bands
                 tags_list = [src.tags(i) for i in range(1, src.count + 1)]
 
@@ -320,13 +330,50 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
         return data_dict
 
+    def _get_projection_coordinates(self) -> tuple[np.ndarray, np.ndarray]:
+        """Get actual x/y projection coordinates from GRIB spatial metadata.
+
+        Returns:
+            Tuple of (x_coords, y_coords) in projection meters
+        """
+        if not hasattr(self, '_spatial_metadata'):
+            raise RuntimeError("Spatial metadata not available. Must read at least one GRIB file first.")
+
+        transform = self._spatial_metadata['transform']
+        width = self._spatial_metadata['width']
+        height = self._spatial_metadata['height']
+
+        # Generate x coordinates (columns) - center of each pixel
+        x_coords = np.array([
+            transform * (col + 0.5, 0.5)
+            for col in range(width)
+        ])[:, 0]  # Extract x values
+
+        # Generate y coordinates (rows) - center of each pixel
+        y_coords = np.array([
+            transform * (0.5, row + 0.5)
+            for row in range(height)
+        ])[:, 1]  # Extract y values
+
+        print(f"Generated projection coordinates:")
+        print(f"  x range: {x_coords[0]:.0f} to {x_coords[-1]:.0f} meters ({len(x_coords)} points)")
+        print(f"  y range: {y_coords[0]:.0f} to {y_coords[-1]:.0f} meters ({len(y_coords)} points)")
+
+        return x_coords.astype(np.int32), y_coords.astype(np.int32)
+
     def process(self) -> xr.Dataset:
         """Process the region and return the populated dataset.
 
-        Overrides base class to set up irregular lead_time coordinate.
+        Overrides base class to set up irregular lead_time coordinate and
+        extract projection coordinates from GRIB files.
         """
         # Generate source file coordinates
         source_coords = self.generate_source_file_coords()
+
+        # Download first file to extract spatial metadata
+        print("Downloading first file to extract spatial coordinates...")
+        first_file = self.download_file(source_coords[0])
+        _ = self.read_data(first_file, source_coords[0])  # This stores spatial metadata
 
         # Create dimension coordinates
         init_times = pd.date_range(
@@ -348,6 +395,10 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
 
         print(f"DEBUG process(): ds.init_time.values={ds.init_time.values}")
         print(f"DEBUG process(): ds.init_time.values[0]={ds.init_time.values[0]}, dtype={ds.init_time.values.dtype}")
+
+        # Replace x/y coordinates with actual projection coordinates from GRIB
+        x_coords, y_coords = self._get_projection_coordinates()
+        ds = ds.assign_coords(x=x_coords, y=y_coords)
 
         # Create irregular lead_time coordinate values for NBM
         # [1, 2, ..., 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84]
