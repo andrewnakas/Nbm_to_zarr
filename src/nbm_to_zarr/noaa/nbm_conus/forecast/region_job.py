@@ -440,13 +440,25 @@ class NbmConusForecastRegionJob(RegionJob[NbmConusSourceFileCoord, DataVariableC
         """Create jobs for operational updates.
 
         For NBM, we process the most recent available forecast cycle.
+
+        NOTE: NBM extended forecasts (37-84 hours) are only available for
+        major 6-hourly cycles (00z, 06z, 12z, 18z). Hourly cycles (01z-05z, 07z-11z,
+        13z-17z, 19z-23z) only provide forecasts out to 36 hours.
         """
         # Get current time
         now = pd.Timestamp.now(tz="UTC")
 
         # NBM data has some latency, so look back a few hours to ensure data availability
-        # Round down to the nearest hour
-        init_time = now.floor("h") - timedelta(hours=2)
+        # Round down to the nearest hour first
+        recent_time = now.floor("h") - timedelta(hours=2)
+
+        # Round down to the nearest 6-hour cycle (00z, 06z, 12z, 18z)
+        # These are the only cycles that provide extended forecasts beyond 36 hours
+        hour = recent_time.hour
+        major_cycle_hour = (hour // 6) * 6  # Rounds down to 0, 6, 12, or 18
+        init_time = recent_time.replace(hour=major_cycle_hour, minute=0, second=0, microsecond=0)
+
+        print(f"Using major cycle: {init_time.strftime('%Y-%m-%d %Hz')} (ensures 84-hour forecast availability)")
 
         # Create a single job for the most recent forecast
         processing_region = ProcessingRegion(

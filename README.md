@@ -109,10 +109,12 @@ The latest forecast data is available in the `data/` directory:
 ### Automated Updates
 
 This repository automatically updates every hour at :15 minutes past the hour via GitHub Actions. The workflow:
-1. Downloads the latest NBM forecast from NOMADS
+1. Downloads the latest NBM forecast from NOMADS (uses major 6-hourly cycles: 00z, 06z, 12z, 18z)
 2. Converts GRIB2 data to cloud-optimized Zarr format
 3. Maintains a rolling dataset (keeps only the latest forecast)
 4. Generates catalog metadata and documentation
+
+**Note**: The full 84-hour forecast is only available from major 6-hourly cycles (00z, 06z, 12z, 18z). Hourly cycles (01z-05z, 07z-11z, 13z-17z, 19z-23z) only provide forecasts out to 36 hours.
 
 ---
 

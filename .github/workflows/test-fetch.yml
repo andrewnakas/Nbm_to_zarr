@@ -57,7 +57,8 @@ jobs:
         timeout-minutes: 60
         run: |
           echo "Testing NBM data download and processing..."
-          echo "Full 52 forecast files (1-36h hourly + 38-84h 3-hourly)"
+          echo "Full 52 forecast files (1-36h hourly + 38-83h 3-hourly)"
+          echo "Note: Using major 6-hourly cycle (00z/06z/12z/18z) for full 84-hour forecast"
           set -x  # Enable command echoing
           nbm-zarr operational-update --dataset-id noaa-nbm-conus-forecast --output-dir ./test_data 2>&1 | tee test_output.log || {
             EXIT_CODE=$?
