@@ -1,0 +1,18 @@
+{
+  "shape": [
+    1597
+  ],
+  "chunks": [
+    1597
+  ],
+  "dtype": "<i4",
+  "fill_value": null,
+  "order": "C",
+  "filters": null,
+  "dimension_separator": ".",
+  "compressor": {
+    "id": "zstd",
+    "level": 3
+  },
+  "zarr_format": 2
+}

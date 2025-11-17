@@ -1,0 +1,71 @@
+name: Cleanup Old Data
+
+on:
+  workflow_run:
+    workflows: ["Update NBM Data"]
+    types:
+      - completed
+  workflow_dispatch:  # Allow manual triggering
+
+concurrency:
+  group: data-update
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    # Only run if the update workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install package
+        run: |
+          uv pip install --system -e .
+
+      - name: Keep only latest forecast run
+        run: |
+          python scripts/cleanup_old_forecasts.py
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add data/
+          if ! git diff --staged --quiet; then
+            git commit -m "Cleanup old NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
+
+            # Retry push up to 3 times with pull --rebase if needed
+            for attempt in 1 2 3; do
+              if git push; then
+                echo "Successfully pushed on attempt $attempt"
+                break
+              elif [ $attempt -lt 3 ]; then
+                echo "Push failed on attempt $attempt, pulling and retrying..."
+                git pull --rebase origin $(git branch --show-current)
+              else
+                echo "Failed to push after 3 attempts"
+                exit 1
+              fi
+            done
+          else
+            echo "No changes to commit (cleanup not needed)"
+          fi
