@@ -21,10 +21,28 @@ jobs:
       contents: write
 
     steps:
+      - name: Free up disk space
+        run: |
+          echo "=== Disk space before cleanup ==="
+          df -h
+
+          # Remove unnecessary pre-installed software
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+          # Clean package manager caches
+          sudo apt-get clean
+          sudo rm -rf /var/lib/apt/lists/*
+
+          echo "=== Disk space after cleanup ==="
+          df -h
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1  # Shallow clone - only fetch latest commit
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -103,6 +121,15 @@ jobs:
           if ! git diff --staged --quiet; then
             git commit -m "Update NBM data - $(date -u +'%Y-%m-%d %H:%M UTC')"
 
+            # Aggressive git cleanup to prevent repository bloat
+            echo "=== Running git cleanup to save space ==="
+            git reflog expire --expire=now --all
+            git gc --aggressive --prune=now
+
+            # Show repository size
+            echo "Repository size after cleanup:"
+            du -sh .git
+
             # Retry push up to 3 times with pull --rebase if needed
             for attempt in 1 2 3; do
               if git push; then
@@ -110,7 +137,7 @@ jobs:
                 break
               elif [ $attempt -lt 3 ]; then
                 echo "Push failed on attempt $attempt, pulling and retrying..."
-                git pull --rebase origin $(git branch --show-current)
+                git pull --rebase --depth=1 origin $(git branch --show-current)
               else
                 echo "Failed to push after 3 attempts"
                 exit 1
@@ -119,6 +146,16 @@ jobs:
           else
             echo "No changes to commit"
           fi
+
+      - name: Monitor final disk space
+        if: always()
+        run: |
+          echo "=== Final disk space usage ==="
+          df -h
+          echo "=== Repository size ==="
+          du -sh .git
+          echo "=== Data directory size ==="
+          du -sh data/ || echo "No data directory"
 
       - name: Upload catalog for Pages deployment
         uses: actions/upload-artifact@v4
