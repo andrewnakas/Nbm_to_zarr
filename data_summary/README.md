@@ -1,12 +1,12 @@
 # NBM Data Summary
 
-Generated: 2025-11-30 07:36:59 UTC
+Generated: 2025-11-30 08:44:53 UTC
 
 ## Available Datasets
 
 ### noaa-nbm-conus-forecast
 
-**Storage Size:** 1017.82 MB
+**Storage Size:** 1.02 GB
 
 **Title:** NOAA National Blend of Models (NBM) CONUS Forecast
 
@@ -19,8 +19,8 @@ Generated: 2025-11-30 07:36:59 UTC
 - x: 2345
 
 **Forecast Initialization Times:** 1 cycles
-- First: 2025-11-30T00:00:00.000000000
-- Last: 2025-11-30T00:00:00.000000000
+- First: 2026-10-24T00:00:00.000000000
+- Last: 2026-10-24T00:00:00.000000000
 
 **Variables (19):**
 - `ceil`: Ceiling height
